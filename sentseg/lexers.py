@@ -326,4 +326,8 @@ class BertLexer(torch.nn.Module):
         with open(model_path / "lexicon.yaml") as in_stream:
             itos = yaml.load(in_stream)
         muppet_path = (model_path / "muppet").resolve()
-        return cls(itos=itos, bert_model=str(muppet_path), **config)
+        res = cls(itos=itos, bert_model=str(muppet_path), **config)
+        weights_path = model_path / "weights.pt"
+        if weights_path.exists():
+            res.load_state_dict(torch.load(weights_path))
+        return res

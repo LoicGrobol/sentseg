@@ -32,8 +32,7 @@ class Segmenter(torch.nn.Module):
 
     def save(self, model_path: pathlib.Path):
         model_path.mkdir(exist_ok=True, parents=True)
-        weights_file = model_path / "weights.pt"
-        torch.save(self.state_dict(), weights_file)
+        torch.save(self.state_dict(), model_path / "weights.pt")
         with open(model_path / "config.yaml", "w") as out_stream:
             yaml.dump(
                 {
@@ -49,4 +48,6 @@ class Segmenter(torch.nn.Module):
         with open(model_path / "config.yaml") as in_stream:
             config = yaml.load(in_stream)
         lexer = lexers.BertLexer.load(model_path / "lexer")
-        return cls(lexer=lexer, **config)
+        res = cls(lexer=lexer, **config)
+        res.load_state_dict(torch.load(model_path / "weights.pt"))
+        return res
