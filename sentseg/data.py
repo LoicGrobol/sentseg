@@ -1,14 +1,12 @@
 import pathlib
 
 from typing import (
-    Any,
     Dict,
     Final,
     IO,
     Iterable,
     List,
     NamedTuple,
-    Optional,
     Sequence,
     Type,
     TypeVar,
@@ -24,6 +22,17 @@ from sentseg import lexers
 from sentseg.utils import smart_open
 
 LABELS_LEXICON = {"B": 0, "I": 1, "L": 2}
+
+
+def vocab_from_conllu(filename: Union[str, pathlib.Path, IO[str]]) -> Dict[str, int]:
+    with smart_open(filename) as istream:
+        res = {
+            tok: idx
+            for idx, tok in enumerate(
+                sorted(set(t["form"] for s in conllu.parse_incr(istream) for t in s))
+            )
+        }
+    return res
 
 
 class TaggedSeq(NamedTuple):
@@ -76,17 +85,16 @@ class SentDataset(torch.utils.data.Dataset):
         return TaggedSeq(encoded_seq, labels)
 
     @classmethod
-    def from_conll(
+    def from_conllu(
         cls: Type[_T_SENTDATASET],
         filename: Union[str, pathlib.Path, IO[str]],
-        config: Optional[Dict[str, Any]] = None,
+        lexer: lexers.BertLexer,
+        **kwargs
     ) -> _T_SENTDATASET:
-        if config is None:
-            config = dict()
         with smart_open(filename) as istream:
             sents = [[t["form"] for t in s] for s in conllu.parse_incr(istream)]
 
-        return cls(sents, **config)
+        return cls(sents, **kwargs)
 
 
 class TaggedSeqBatch(NamedTuple):

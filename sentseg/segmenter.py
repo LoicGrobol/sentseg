@@ -78,7 +78,7 @@ class MaskedAccuracy(pl_metrics.Metric):
         return self.correct.true_divide(self.total)
 
 
-class SegmenterTrainConfig(pydantic.BaseModel):
+class SegmenterTrainHparams(pydantic.BaseModel):
     batch_size: int = 64
     betas: Tuple[float, float] = (0.9, 0.98)
     epsilon: float = 1e-8
@@ -92,14 +92,14 @@ class SegmenterTrainModule(pl.LightningModule):
     def __init__(
         self,
         model: Segmenter,
-        config: Optional[SegmenterTrainConfig] = None,
+        config: Optional[SegmenterTrainHparams] = None,
     ):
         super().__init__()
 
         if config is not None:
             self.config = config
         else:
-            self.config = SegmenterTrainConfig()
+            self.config = SegmenterTrainHparams()
 
         self.accuracy = MaskedAccuracy()
         self.model = model
@@ -217,4 +217,3 @@ class SegmenterTrainModule(pl.LightningModule):
             schedulers = []
 
         return [optimizer], schedulers
-
