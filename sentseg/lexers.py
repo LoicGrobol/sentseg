@@ -10,13 +10,14 @@ from typing import (
     Union,
 )
 
+import toml
 import torch
 import torch.jit
 import torch.nn
 from torch.nn.utils.rnn import pad_sequence
 import transformers
 from transformers.tokenization_utils_base import BatchEncoding, TokenSpan
-import yaml
+import ujson as json
 
 
 _T_BertLexerBatch = TypeVar("_T_BertLexerBatch", bound="BertLexerBatch")
@@ -95,14 +96,14 @@ class BertLexer(torch.nn.Module):
 
     def __init__(
         self,
-        itos: Sequence[str],
-        unk_word: str,
-        embedding_size: int,
-        word_dropout: float,
         bert_layers: Optional[Sequence[int]],
         bert_model: str,
         bert_subwords_reduction: Literal["first", "mean"],
         bert_weighted: bool,
+        embedding_size: int,
+        itos: Sequence[str],
+        unk_word: str,
+        word_dropout: float,
         words_padding_idx: int,
     ):
 
@@ -212,7 +213,7 @@ class BertLexer(torch.nn.Module):
         )
         # FIXME: this loop is embarassingly parallel, there must be a way to parallelize it
         for sent_n, alignment in enumerate(inpt.subword_alignments):
-            for word_n, span in enumerate(alignment, start=0):
+            for word_n, span in enumerate(alignment):
                 # shape: `span.end-span.start×features`
                 bert_word_embeddings = bert_subword_embeddings[
                     sent_n, span.start : span.end, ...
@@ -297,22 +298,22 @@ class BertLexer(torch.nn.Module):
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
-        with open(model_path / "config.yaml", "w") as out_stream:
-            yaml.dump(
+        with open(model_path / "config.toml", "w") as out_stream:
+            toml.dump(
                 {
-                    "unk_word": self.unk_word,
-                    "embedding_size": self.embedding_size,
-                    "word_dropout": self.word_dropout,
                     "bert_layers": self.bert_layers,
                     "bert_model": self.bert_model,
                     "bert_subwords_reduction": self.bert_subwords_reduction,
                     "bert_weighted": self.bert_weighted,
+                    "embedding_size": self.embedding_size,
+                    "unk_word": self.unk_word,
+                    "word_dropout": self.word_dropout,
                     "words_padding_idx": self.words_padding_idx,
                 },
                 out_stream,
             )
-        with open(model_path / "lexicon.yaml", "w") as out_stream:
-            yaml.dump(self.itos, out_stream)
+        with open(model_path / "lexicon.json", "w") as out_stream:
+            json.dump(self.itos, out_stream)
         muppet_path = model_path / "muppet"
         self.bert.config.save_pretrained(str(muppet_path))
         self.bert_tokenizer.save(str(muppet_path))
@@ -321,12 +322,13 @@ class BertLexer(torch.nn.Module):
 
     @classmethod
     def load(cls: Type[_T_BertLexer], model_path: pathlib.Path) -> _T_BertLexer:
-        with open(model_path / "config.yaml") as in_stream:
-            config = yaml.load(in_stream)
-        with open(model_path / "lexicon.yaml") as in_stream:
-            itos = yaml.load(in_stream)
-        muppet_path = (model_path / "muppet").resolve()
-        res = cls(itos=itos, bert_model=str(muppet_path), **config)
+        with open(model_path / "config.toml") as in_stream:
+            config = toml.load(in_stream)
+        with open(model_path / "lexicon.json") as in_stream:
+            itos = json.load(in_stream)
+        res = cls(
+            itos=itos, bert_model=str((model_path / "muppet").resolve()), **config
+        )
         weights_path = model_path / "weights.pt"
         if weights_path.exists():
             res.load_state_dict(torch.load(weights_path))
