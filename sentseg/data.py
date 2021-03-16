@@ -88,7 +88,6 @@ class SentDataset(torch.utils.data.Dataset):
     def from_conllu(
         cls: Type[_T_SENTDATASET],
         filename: Union[str, pathlib.Path, IO[str]],
-        lexer: lexers.BertLexer,
         **kwargs
     ) -> _T_SENTDATASET:
         with smart_open(filename) as istream:

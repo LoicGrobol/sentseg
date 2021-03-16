@@ -111,6 +111,11 @@ class SavePretrainedModelCallback(pl.callbacks.Callback):
             pl_module.model.save(self.save_dir, save_weights=True)
 
 
+@click.group()
+def cli():
+    pass
+
+
 class SegmenterTrainingRunConfig(pydantic.BaseModel):
     max_epochs: int
     max_steps: Optional[int]
@@ -126,7 +131,7 @@ class Config(pydantic.BaseModel):
     training: SegmenterTrainingConfig
 
 
-@click.command()
+@cli.command(help="Train a segmenter model")
 @click.argument(
     "config_path",
     type=click_pathlib.Path(resolve_path=True, dir_okay=False, exists=True),
@@ -149,7 +154,8 @@ class Config(pydantic.BaseModel):
     ),
 )
 @click.option(
-    "--devset-path",
+    "--dev",
+    "devset_path",
     type=click_pathlib.Path(resolve_path=True, exists=True, dir_okay=False),
     help="A CoNLL-U file for validation",
 )
@@ -200,13 +206,12 @@ class Config(pydantic.BaseModel):
 )
 @click.option("--profile", is_flag=True, help="Run in profiling mode")
 @click.option("--verbose", is_flag=True, help="More detailed logs")
-def main(
+def train(
     accelerator: Optional[str],
     devset_path: Optional[pathlib.Path],
     config_path: pathlib.Path,
     device_batch_size: Optional[int],
     guess_batch_size: bool,
-    muppet: Optional[str],
     n_gpus: int,
     n_nodes: int,
     n_workers: int,
@@ -239,19 +244,20 @@ def main(
 
     vocab = data.vocab_from_conllu(trainset_path)
     lexer = lexers.BertLexer(vocab=vocab, **config.segmenter["lexer"])
+    model = segmenter.Segmenter(lexer, **config.segmenter["model"])
 
     logger.info(f"Loading train dataset from {trainset_path}")
-    train_set = data.SentDataset.from_conll(trainset_path, lexer=lexer)
+    train_set = data.SentDataset.from_conllu(trainset_path, lexer=lexer)
     dev_set: Optional[data.TextDataset]
     if devset_path is not None:
-        dev_set = data.SentDataset.from_conll(devset_path, lexer=lexer)
+        dev_set = data.SentDataset.from_conllu(devset_path, lexer=lexer)
     else:
         dev_set = None
 
     logger.info("Creating training module")
 
     training_module = segmenter.SegmenterTrainModule(
-        segmenter, config=config.training.hparams
+        model, config=config.training.hparams
     )
 
     if device_batch_size is None:
@@ -321,7 +327,7 @@ def main(
         pl.callbacks.ProgressBar(),
     ]
     if save_period:
-        save_model(segmenter, out_dir / "partway_models" / "initial")
+        save_model(model, out_dir / "partway_models" / "initial")
         callbacks.append(
             SavePretrainedModelCallback(
                 out_dir / "partway_models",
@@ -369,7 +375,7 @@ def main(
     )
 
     save_dir = out_dir / "model"
-    save_model(segmenter, save_dir)
+    save_model(model, save_dir)
 
 
 @rank_zero_only
@@ -378,14 +384,11 @@ def save_model(
     save_dir: pathlib.Path,
     tokenizer: Optional[transformers.PreTrainedTokenizer] = None,
 ):
-    """Save a transformer model."""
+    """Save a segmenter model."""
     save_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving model to {save_dir}")
-    model.save_pretrained(str(save_dir))
-    if tokenizer is not None:
-        logger.info(f"Saving tokenizer to {save_dir}")
-        tokenizer.save_pretrained(str(save_dir))
+    model.save(str(save_dir))
 
 
 if __name__ == "__main__":
-    main()
+    cli()

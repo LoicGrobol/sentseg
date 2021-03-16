@@ -1,6 +1,8 @@
 import pathlib
 from typing import Optional, Tuple, Type, TypeVar
 
+import fast_transformers.builders
+import fast_transformers.masking
 import pydantic
 import pytorch_lightning as pl
 import pytorch_lightning.metrics as pl_metrics
@@ -9,7 +11,7 @@ import torch
 import torch.nn
 import transformers
 
-from sentseg import lexers
+from sentseg import data, lexers
 
 _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 
@@ -18,18 +20,28 @@ class Segmenter(torch.nn.Module):
     def __init__(self, lexer: lexers.BertLexer, depth: int = 1, n_heads: int = 1):
         super().__init__()
         self.lexer = lexer
-        self.transformer = torch.nn.Transformer(
-            d_model=self.lexer.out_dim,
-            dim_feedforward=4 * self.lexer.out_dim,
-            nhead=n_heads,
-            num_encoder_layers=depth,
-            num_decoder_layers=0,
+        self.depth = depth
+        self.n_heads = n_heads
+        self.transformer = (
+            fast_transformers.builders.TransformerEncoderBuilder.from_kwargs(
+                n_layers=self.depth,
+                n_heads=self.n_heads,
+                query_dimensions=self.lexer.out_dim,
+                value_dimensions=self.lexer.out_dim,
+                feed_forward_dimensions=4 * self.lexer.out_dim,
+                attention_type="full",
+                activation="gelu",
+            ).get()
         )
-        self.output_layer = torch.nn.Linear(self.lexer.out, 3)
+        self.output_layer = torch.nn.Linear(self.lexer.out_dim, 3)
 
     def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:
         encoded_inpt = self.lexer(inpt)
-        feats = self.transformer(encoded_inpt, src_key_padding_mask=inpt.padding_mask)
+        # Pytorch transformers use seq×batch×feats dimensions, I don't understand why
+        feats = self.transformer(
+            encoded_inpt,
+            length_mask=fast_transformers.masking.LengthMask(inpt.sent_lengths),
+        )
         label_scores = self.output_layer(feats)
         return label_scores
 
@@ -67,7 +79,7 @@ class MaskedAccuracy(pl_metrics.Metric):
         self.add_state("correct", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, preds: torch.Tensor, target: torch.Tensor):
+    def update(self, preds: torch.Tensor, target: torch.Tensor):  # type: ignore[override]
         assert preds.shape == target.shape
         mask = target.ne(self.ignore_index)
         if mask.any():
@@ -102,21 +114,22 @@ class SegmenterTrainModule(pl.LightningModule):
             self.config = SegmenterTrainHparams()
 
         self.accuracy = MaskedAccuracy()
+        self.loss = torch.nn.CrossEntropyLoss()
         self.model = model
 
         self.save_hyperparameters("config")
 
-    def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:
+    def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:  # type: ignore[override]
         return self.model(inpt)
 
-    def training_step(self, batch: lexers.TaggedSeqBatch, batch_idx: int):
+    def training_step(self, batch: data.TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
         inpt, labels = batch
 
         outputs = self(inpt)
 
-        loss = outputs.loss
+        loss = self.loss(outputs.view(-1, outputs.shape[-1]), labels.view(-1))
 
-        preds = torch.argmax(outputs.logits, dim=-1)
+        preds = torch.argmax(outputs, dim=-1)
         accuracy = self.accuracy(preds, labels)
 
         self.log(
@@ -133,14 +146,14 @@ class SegmenterTrainModule(pl.LightningModule):
         )
         return loss
 
-    def validation_step(self, batch: lexers.TaggedSeqBatch, batch_idx: int):
+    def validation_step(self, batch: data.TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
         inpt, labels = batch
 
         outputs = self(inpt)
 
-        loss = outputs.loss
+        loss = self.loss(outputs.view(-1, outputs.shape[-1]), labels.view(-1))
 
-        preds = torch.argmax(outputs.logits, dim=-1)
+        preds = torch.argmax(outputs, dim=-1)
         accuracy = self.accuracy(preds, labels)
 
         self.log(

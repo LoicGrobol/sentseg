@@ -5,7 +5,7 @@
     n_heads = 1
 
     [segmenter.lexer]
-    muppet = "xlm-roberta-base"
+    transformer_model = "xlm-roberta-base"
     embedding_size = 100
 
 [training]

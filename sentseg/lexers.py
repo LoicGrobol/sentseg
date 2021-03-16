@@ -32,7 +32,7 @@ def integer_dropout(t: torch.Tensor, fill_value: int, p: float) -> torch.Tensor:
 
 class BertLexerBatch(NamedTuple):
     word_indices: torch.Tensor
-    padding_mask: torch.Tensor
+    sent_lengths: torch.Tensor
     bert_encoding: BatchEncoding
     subword_alignments: Sequence[Sequence[TokenSpan]]
 
@@ -41,7 +41,7 @@ class BertLexerBatch(NamedTuple):
     ) -> _T_BertLexerBatch:
         return type(self)(
             bert_encoding=self.bert_encoding.to(device=device),
-            padding_mask=self.padding_mask,
+            sent_lengths=self.sent_lengths,
             subword_alignments=self.subword_alignments,
             word_indices=self.word_indices.to(device=device),
         )
@@ -97,7 +97,7 @@ class BertLexer(torch.nn.Module):
 
     def __init__(
         self,
-        bert_model: str,
+        transformer_model: str,
         embedding_size: int,
         vocab: Dict[str, int],
         bert_layers: Optional[Sequence[int]] = None,
@@ -112,29 +112,27 @@ class BertLexer(torch.nn.Module):
         word_padding_idx = len(self.vocab) + 1
         self.vocab_size = len(self.vocab) + 2
         self.embedding = torch.nn.Embedding(
-            self.vocab_size,
-            embedding_size,
+            num_embeddings=self.vocab_size,
+            embedding_dim=embedding_size,
             padding_idx=word_padding_idx,
         )
 
         try:
             self.bert = transformers.AutoModel.from_pretrained(
-                bert_model, output_hidden_states=True
+                transformer_model, output_hidden_states=True
             )
         except OSError:
-            config = transformers.AutoConfig.from_pretrained(bert_model)
+            config = transformers.AutoConfig.from_pretrained(transformer_model)
             self.bert = transformers.AutoModel.from_config(config)
 
         self.bert_tokenizer = transformers.AutoTokenizer.from_pretrained(
-            bert_model, use_fast=True
+            transformer_model, use_fast=True
         )
         # Shim for the weird idiosyncrasies of the RoBERTa tokenizer
         if isinstance(self.bert_tokenizer, transformers.GPT2TokenizerFast):
             self.bert_tokenizer = transformers.AutoTokenizer.from_pretrained(
-                bert_model, use_fast=True, add_prefix_space=True
+                transformer_model, use_fast=True, add_prefix_space=True
             )
-
-        self.embedding_size = embedding_size + self.bert.config.hidden_size
 
         self.word_dropout = word_dropout
         self._dpout = 0.0
@@ -166,7 +164,7 @@ class BertLexer(torch.nn.Module):
             torch.ones(1, dtype=torch.float),
             requires_grad=self.bert_weighted,
         )
-        self.out_dim = self.embedding_size + self.bert.config.hidden_size
+        self.out_dim = embedding_size + self.bert.config.hidden_size
 
     def train(self: _T_BertLexer, mode: bool = True) -> "_T_BertLexer":
         if mode:
@@ -234,19 +232,17 @@ class BertLexer(torch.nn.Module):
         batch: Sequence[BertLexerSentence],
     ) -> BertLexerBatch:
         """Pad a batch of sentences."""
-        words_batch, bert_batch, alignments = [], [], []
+        words_batch: List[torch.Tensor] = []
+        bert_batch: List[BatchEncoding] = []
+        alignments: List[Sequence[TokenSpan]] = []
         for sent in batch:
             words_batch.append(sent.word_indices)
             bert_batch.append(sent.bert_encoding)
             alignments.append(sent.subwords_alignments)
-        bert_encoding = self.bert_tokenizer.pad(bert_batch)
+        bert_encoding = self.bert_tokenizer.pad(bert_batch, return_tensors="pt")
         return BertLexerBatch(
             bert_encoding=bert_encoding,
-            padding_mask=pad_sequence(
-                [torch.zeros(s.word_indices.shape[0], dtype=torch.bool) for s in batch],
-                batch_first=True,
-                padding_value=True,
-            ),
+            sent_lengths=torch.tensor([s.word_indices.shape[0] for s in batch], dtype=torch.long),
             subword_alignments=alignments,
             word_indices=pad_sequence(
                 words_batch, batch_first=True, padding_value=self.embedding.padding_idx
@@ -272,7 +268,6 @@ class BertLexer(torch.nn.Module):
                 tokens_sequence,
                 is_split_into_words=True,
                 return_special_tokens_mask=True,
-                return_tensors="pt",
             )
             # TODO: there might be a better way to do this?
             alignments = [
@@ -285,7 +280,6 @@ class BertLexer(torch.nn.Module):
             bert_encoding = self.bert_tokenizer.encode_plus(
                 [subtoken for token in bert_tokens for subtoken in token],
                 return_special_tokens_mask=True,
-                return_tensors="pt",
             )
             bert_word_lengths = [len(word) for word in bert_tokens]
             alignments = align_with_special_tokens(
@@ -323,7 +317,9 @@ class BertLexer(torch.nn.Module):
         with open(model_path / "vocab.json") as in_stream:
             vocab = json.load(in_stream)
         res = cls(
-            vocab=vocab, bert_model=str((model_path / "muppet").resolve()), **config
+            vocab=vocab,
+            transformer_model=str((model_path / "muppet").resolve()),
+            **config,
         )
         weights_path = model_path / "weights.pt"
         if weights_path.exists():
