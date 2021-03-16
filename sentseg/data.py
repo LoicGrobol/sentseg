@@ -18,10 +18,8 @@ import torch
 
 from torch.nn.utils.rnn import pad_sequence
 
-from sentseg import lexers
+from sentseg import lexers, segmenter
 from sentseg.utils import smart_open
-
-LABELS_LEXICON = {"B": 0, "I": 1, "L": 2}
 
 
 def vocab_from_conllu(filename: Union[str, pathlib.Path, IO[str]]) -> Dict[str, int]:
@@ -35,11 +33,6 @@ def vocab_from_conllu(filename: Union[str, pathlib.Path, IO[str]]) -> Dict[str, 
     return res
 
 
-class TaggedSeq(NamedTuple):
-    seq: lexers.BertLexerSentence
-    labels: torch.Tensor
-
-
 _T_SENTDATASET = TypeVar("_T_SENTDATASET", bound="SentDataset")
 
 
@@ -47,12 +40,12 @@ class SentDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         sentences: Iterable[Sequence[str]],
-        lexer: lexers.BertLexer,
+        segmenter: segmenter.Segmenter,
         block_size: int = 128,
         offset: int = 1,
     ):
         self.sentences = [tuple(s) for s in sentences]
-        self.lexer = lexer
+        self.segmenter = segmenter
         self.block_size = block_size
         self.offset = offset
 
@@ -62,12 +55,12 @@ class SentDataset(torch.utils.data.Dataset):
         for s in self.sentences:
             self._flat_sents.extend(s)
             if len(s) == 1:
-                self._labels.append(LABELS_LEXICON["B"])
+                self._labels.append(self.segmenter["B"])
             self._labels.extend(
                 (
-                    LABELS_LEXICON["B"],
-                    *(LABELS_LEXICON["I"] for _ in s[1:-1]),
-                    LABELS_LEXICON["L"],
+                    self.segmenter["B"],
+                    *(self.segmenter["I"] for _ in s[1:-1]),
+                    self.segmenter["L"],
                 )
             )
 
@@ -78,17 +71,15 @@ class SentDataset(torch.utils.data.Dataset):
         seq = self._flat_sents[
             index * self.offset : index * self.offset + self.block_size
         ]
-        encoded_seq = self.lexer.encode(seq)
+        encoded_seq = self.segmenter.lexer.encode(seq)
         labels = torch.tensor(
             self._labels[index * self.offset : index * self.offset + self.block_size]
         )
-        return TaggedSeq(encoded_seq, labels)
+        return segmenter.TaggedSeq(encoded_seq, labels)
 
     @classmethod
     def from_conllu(
-        cls: Type[_T_SENTDATASET],
-        filename: Union[str, pathlib.Path, IO[str]],
-        **kwargs
+        cls: Type[_T_SENTDATASET], filename: Union[str, pathlib.Path, IO[str]], **kwargs
     ) -> _T_SENTDATASET:
         with smart_open(filename) as istream:
             sents = [[t["form"] for t in s] for s in conllu.parse_incr(istream)]
@@ -111,8 +102,8 @@ class SentLoader(torch.utils.data.DataLoader):
             kwargs["collate_fn"] = self.collate
         super().__init__(dataset, *args, **kwargs)
 
-    def collate(self, batch: Sequence[TaggedSeq]) -> TaggedSeqBatch:
-        seqs_batch = self.dataset.lexer.make_batch([s.seq for s in batch])
+    def collate(self, batch: Sequence[segmenter.TaggedSeq]) -> TaggedSeqBatch:
+        seqs_batch = self.dataset.segmenter.lexer.make_batch([s.seq for s in batch])
         labels_batch = pad_sequence(
             [s.labels for s in batch],
             batch_first=True,

@@ -11,12 +11,14 @@ import torch
 import torch.nn
 import transformers
 
-from sentseg import data, lexers
+from sentseg import lexers
 
 _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 
 
 class Segmenter(torch.nn.Module):
+    labels_lexicon = {"B": 0, "I": 1, "L": 2}
+
     def __init__(self, lexer: lexers.BertLexer, depth: int = 1, n_heads: int = 1):
         super().__init__()
         self.lexer = lexer
@@ -44,6 +46,8 @@ class Segmenter(torch.nn.Module):
         )
         label_scores = self.output_layer(feats)
         return label_scores
+
+    def segment(self, )
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
@@ -90,6 +94,11 @@ class MaskedAccuracy(pl_metrics.Metric):
         return self.correct.true_divide(self.total)
 
 
+class TaggedSeq(NamedTuple):
+    seq: lexers.BertLexerSentence
+    labels: torch.Tensor
+
+
 class SegmenterTrainHparams(pydantic.BaseModel):
     batch_size: int = 64
     betas: Tuple[float, float] = (0.9, 0.98)
@@ -122,7 +131,7 @@ class SegmenterTrainModule(pl.LightningModule):
     def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:  # type: ignore[override]
         return self.model(inpt)
 
-    def training_step(self, batch: data.TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
+    def training_step(self, batch: TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
         inpt, labels = batch
 
         outputs = self(inpt)
@@ -146,7 +155,7 @@ class SegmenterTrainModule(pl.LightningModule):
         )
         return loss
 
-    def validation_step(self, batch: data.TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
+    def validation_step(self, batch: TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
         inpt, labels = batch
 
         outputs = self(inpt)
