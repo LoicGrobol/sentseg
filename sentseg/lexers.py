@@ -100,7 +100,7 @@ class BertLexer(torch.nn.Module):
     def __init__(
         self,
         transformer_model: str,
-        embedding_size: int,
+        embedding_dim: int,
         vocab: Dict[str, int],
         bert_layers: Optional[Sequence[int]] = None,
         bert_subwords_reduction: Literal["first", "mean"] = "mean",
@@ -115,7 +115,7 @@ class BertLexer(torch.nn.Module):
         self.vocab_size = len(self.vocab) + 2
         self.embedding = torch.nn.Embedding(
             num_embeddings=self.vocab_size,
-            embedding_dim=embedding_size,
+            embedding_dim=embedding_dim,
             padding_idx=word_padding_idx,
         )
 
@@ -166,7 +166,7 @@ class BertLexer(torch.nn.Module):
             torch.ones(1, dtype=torch.float),
             requires_grad=self.bert_weighted,
         )
-        self.out_dim = embedding_size + self.bert.config.hidden_size
+        self.out_dim = embedding_dim + self.bert.config.hidden_size
 
     def train(self: _T_BertLexer, mode: bool = True) -> "_T_BertLexer":
         if mode:
@@ -299,7 +299,7 @@ class BertLexer(torch.nn.Module):
                     "bert_layers": self.bert_layers,
                     "bert_subwords_reduction": self.bert_subwords_reduction,
                     "bert_weighted": self.bert_weighted,
-                    "embedding_size": self.embedding_size,
+                    "embedding_dim": self.embedding.embedding_dim,
                     "word_dropout": self.word_dropout,
                 },
                 out_stream,
