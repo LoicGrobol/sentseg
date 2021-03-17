@@ -6,7 +6,7 @@
 
     [segmenter.lexer]
     transformer_model = "xlm-roberta-base"
-    embedding_size = 100
+    embedding_dim = 100
 
 [training]
 
