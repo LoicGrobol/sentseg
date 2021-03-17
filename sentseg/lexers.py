@@ -168,7 +168,7 @@ class BertLexer(torch.nn.Module):
         )
         self.out_dim = embedding_dim + self.bert.config.hidden_size
 
-    def train(self: _T_BertLexer, mode: bool = True) -> "_T_BertLexer":
+    def train(self: _T_BertLexer, mode: bool = True) -> _T_BertLexer:
         if mode:
             self._dpout = self.word_dropout
         else:

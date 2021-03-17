@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
-import re
 import sys
 import warnings
 
@@ -412,8 +411,8 @@ def save_model(
     "--from",
     "from_format",
     help="Format of the input file",
-    type=click.Choice(["raw", "tsv"]),
-    default="raw",
+    type=click.Choice(["tokenized", "tsv"]),
+    default="tokenized",
     show_default=True,
 )
 @click.option(
@@ -425,7 +424,7 @@ def save_model(
     show_default=True,
 )
 def segment(
-    from_format: Literal["raw", "tsv"],
+    from_format: Literal["tokenized", "tsv"],
     input_path: str,
     model_path: pathlib.Path,
     output_path: str,
@@ -437,9 +436,9 @@ def segment(
     else:
         input_file = input_path
     model = segmenter.Segmenter.load(model_path)
-    if from_format == "raw":
+    if from_format == "tokenized":
         with smart_open(input_file) as in_stream:
-            words = re.split(r"(\W)", in_stream.read())
+            words = in_stream.read().split()
             lines = None
     elif from_format == "tsv":
         with smart_open(input_file) as in_stream:
@@ -462,7 +461,7 @@ def segment(
         with smart_open(output_file, "w") as out_stream:
             for s in sents:
                 for i, w in enumerate(s):
-                    # This only works because our only input formats are raw and tsv
+                    # This only works because our only input formats are tokenized and tsv
                     out_stream.write(f"{i}\t{w}\n")
                 out_stream.write("\n")
     elif to_format == "horizontal":
