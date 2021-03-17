@@ -1,0 +1,17 @@
+[segmenter]
+
+    [segmenter.model]
+    depth = 2
+    n_heads = 1
+
+    [segmenter.lexer]
+    transformer_model = "xlm-roberta-base"
+    embedding_size = 100
+
+[training]
+
+    [training.run]
+    max_epochs = 64
+
+    [training.hparams]
+    batch_size = 8

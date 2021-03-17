@@ -408,9 +408,21 @@ def save_model(
     type=click.Path(resolve_path=True, dir_okay=False, writable=True, allow_dash=True),
     default="-",
 )
-@click.option("--from", "from_format", type=click.Choice(["raw", "tsv"]), default="raw")
 @click.option(
-    "--to", "to_format", type=click.Choice(["conll", "horizontal"]), default="conll"
+    "--from",
+    "from_format",
+    help="Format of the input file",
+    type=click.Choice(["raw", "tsv"]),
+    default="raw",
+    show_default=True,
+)
+@click.option(
+    "--to",
+    "to_format",
+    help="Format of the output file",
+    type=click.Choice(["conll", "horizontal"]),
+    default="conll",
+    show_default=True,
 )
 def segment(
     from_format: Literal["raw", "tsv"],
