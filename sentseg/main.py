@@ -397,7 +397,7 @@ def save_model(
 @cli.command(help="Segment a document using an existing model")
 @click.argument(
     "model_path",
-    type=click_pathlib.Path(resolve_path=True, dir_okay=False, exists=True),
+    type=click_pathlib.Path(resolve_path=True, file_okay=False, exists=True),
 )
 @click.argument(
     "input_path",
