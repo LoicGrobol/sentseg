@@ -249,10 +249,10 @@ def train(
     model = segmenter.Segmenter(lexer, **config.segmenter["model"])
 
     logger.info(f"Loading train dataset from {trainset_path}")
-    train_set = data.SentDataset.from_conllu(trainset_path, lexer=lexer)
+    train_set = data.SentDataset.from_conllu(trainset_path, segmenter=segmenter)
     dev_set: Optional[data.TextDataset]
     if devset_path is not None:
-        dev_set = data.SentDataset.from_conllu(devset_path, lexer=lexer)
+        dev_set = data.SentDataset.from_conllu(devset_path, segmenter=segmenter)
     else:
         dev_set = None
 
@@ -349,7 +349,9 @@ def train(
             )
     if n_gpus:
         logger.info(f"Training the model on {n_gpus} GPUs")
-        logger.warning("Half precision disabled since fast-transformers doesn't support it.")
+        logger.warning(
+            "Half precision disabled since fast-transformers doesn't support it."
+        )
         # additional_kwargs["precision"] = 16
     elif accelerator == "ddp_cpu":
         logger.info(
