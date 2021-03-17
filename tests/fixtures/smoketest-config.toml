@@ -5,7 +5,7 @@
     n_heads = 1
 
     [segmenter.lexer]
-    transformer_model = "xlm-roberta-base"
+    transformer_model = "distilbert-base-multilingual-cased"
     embedding_dim = 100
 
 [training]
