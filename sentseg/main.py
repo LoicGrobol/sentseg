@@ -249,10 +249,10 @@ def train(
     model = segmenter.Segmenter(lexer, **config.segmenter["model"])
 
     logger.info(f"Loading train dataset from {trainset_path}")
-    train_set = data.SentDataset.from_conllu(trainset_path, segmenter=segmenter)
+    train_set = data.SentDataset.from_conllu(trainset_path, segmenter=model)
     dev_set: Optional[data.TextDataset]
     if devset_path is not None:
-        dev_set = data.SentDataset.from_conllu(devset_path, segmenter=segmenter)
+        dev_set = data.SentDataset.from_conllu(devset_path, segmenter=model)
     else:
         dev_set = None
 

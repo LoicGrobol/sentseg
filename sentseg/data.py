@@ -19,7 +19,7 @@ import torch
 
 from torch.nn.utils.rnn import pad_sequence
 
-from sentseg import segmenter
+from sentseg import segmenter as segmod
 from sentseg.utils import smart_open
 
 
@@ -41,7 +41,7 @@ class SentDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         sentences: Iterable[Sequence[str]],
-        segmenter: segmenter.Segmenter,
+        segmenter: segmod.Segmenter,
         block_size: int = 128,
         offset: int = 1,
     ):
@@ -76,7 +76,7 @@ class SentDataset(torch.utils.data.Dataset):
         labels = torch.tensor(
             self._labels[index * self.offset : index * self.offset + self.block_size]
         )
-        return segmenter.TaggedSeq(encoded_seq, labels)
+        return segmod.TaggedSeq(encoded_seq, labels)
 
     @classmethod
     def from_conllu(
@@ -98,11 +98,11 @@ class SentLoader(torch.utils.data.DataLoader):
             kwargs["collate_fn"] = self.collate
         super().__init__(dataset, *args, **kwargs)
 
-    def collate(self, batch: Sequence[segmenter.TaggedSeq]) -> segmenter.TaggedSeqBatch:
+    def collate(self, batch: Sequence[segmod.TaggedSeq]) -> segmod.TaggedSeqBatch:
         seqs_batch = self.dataset.segmenter.lexer.make_batch([s.seq for s in batch])
         labels_batch = pad_sequence(
             [s.labels for s in batch],
             batch_first=True,
             padding_value=self.LABEL_PADDING,
         )
-        return segmenter.TaggedSeqBatch(seqs_batch, labels_batch)
+        return segmod.TaggedSeqBatch(seqs_batch, labels_batch)
