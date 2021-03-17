@@ -308,7 +308,7 @@ class BertLexer(torch.nn.Module):
             json.dump(self.vocab, out_stream)
         muppet_path = model_path / "muppet"
         self.bert.config.save_pretrained(str(muppet_path))
-        self.bert_tokenizer.save(str(muppet_path))
+        self.bert_tokenizer.save_pretrained(str(muppet_path))
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
