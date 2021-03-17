@@ -21,9 +21,8 @@ jobs:
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip wheel setuptools
-                  python -m pip install torch
                   python -m pip install .
-                  python -m pip install install flake8
+                  python -m pip install flake8
             - name: Lint with flake8
               run: |
                   # stop the build if there are Python syntax errors or undefined names
@@ -48,7 +47,8 @@ jobs:
                   python -m pip install --upgrade pip wheel setuptools
                   python -m pip install --upgrade tox tox-gh-actions
             - name: Test with tox
-              run: tox
+              run: |
+                  tox
     build_wheels:
         name: Build wheels on ${{ matrix.os }}
         runs-on: ${{ matrix.os }}
@@ -63,9 +63,7 @@ jobs:
               with:
                   python-version: "3.9"
             - name: Install dependencies
-              run: |
-                python -m pip install --upgrade pip setuptools wheel build
-                python -m pip install torch
+              run: python -m pip install --upgrade pip setuptools wheel build
             - name: Build wheels
               run: python -m build --wheel
             - uses: actions/upload-artifact@v2
@@ -82,9 +80,7 @@ jobs:
               with:
                   python-version: "3.9"
             - name: Install dependencies
-              run: |
-                python -m pip install --upgrade pip setuptools wheel build
-                python -m pip install torch
+              run: python -m pip install --upgrade pip setuptools wheel build
             - name: Build wheels
               run: python -m build --sdist
             - uses: actions/upload-artifact@v2
