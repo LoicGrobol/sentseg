@@ -387,12 +387,11 @@ def train(
 def save_model(
     model: transformers.PreTrainedModel,
     save_dir: pathlib.Path,
-    tokenizer: Optional[transformers.PreTrainedTokenizer] = None,
 ):
     """Save a segmenter model."""
     save_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving model to {save_dir}")
-    model.save(str(save_dir))
+    model.save(save_dir)
 
 
 @cli.command(help="Segment a document using an existing model")
