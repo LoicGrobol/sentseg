@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import re
 import sys
 import warnings
 
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast, Dict, List, Literal, Optional, TextIO, Union
 
 import click
 import click_pathlib
@@ -19,6 +20,7 @@ from loguru import logger
 from pytorch_lightning.utilities import rank_zero_only
 
 from sentseg import data, lexers, segmenter
+from sentseg.utils import smart_open
 
 
 def setup_logging(
@@ -388,6 +390,74 @@ def save_model(
     save_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving model to {save_dir}")
     model.save(str(save_dir))
+
+
+@cli.command(help="Segment a document using an existing model")
+@click.argument(
+    "model_path",
+    type=click_pathlib.Path(resolve_path=True, dir_okay=False, exists=True),
+)
+@click.argument(
+    "input_path",
+    type=click.Path(resolve_path=True, exists=True, dir_okay=False, allow_dash=True),
+)
+@click.argument(
+    "output_path",
+    type=click.Path(resolve_path=True, dir_okay=False, writable=True, allow_dash=True),
+    default="-",
+)
+@click.option("--from", "from_format", type=click.Choice(["raw", "tsv"]), default="raw")
+@click.option(
+    "--to", "to_format", type=click.Choice(["conll", "horizontal"]), default="conll"
+)
+def segment(
+    from_format: Literal["raw", "tsv"],
+    input_path: str,
+    model_path: pathlib.Path,
+    output_path: str,
+    to_format: Literal["conll", "horizontal"],
+):
+    input_file: Union[str, TextIO]
+    if input_path == "-":
+        input_file = sys.stdin
+    else:
+        input_file = input_path
+    model = segmenter.Segmenter.load(model_path)
+    if from_format == "raw":
+        with smart_open(input_file) as in_stream:
+            words = re.split(r"(\W)", in_stream.read())
+            lines = None
+    elif from_format == "tsv":
+        with smart_open(input_file) as in_stream:
+            lines = [line.strip() for line in in_stream]
+            words = [line.split("\t")[0] for line in lines]
+            # This is ugly but it works 😶
+            if to_format == "horizontal":
+                lines = None
+    else:
+        raise ValueError(f"Unknown format {from_format}")
+    sents = model.segment(words, to_segment=lines)
+
+    output_file: Union[str, TextIO]
+    if output_path == "-":
+        output_file = sys.stdout
+    else:
+        output_file = output_path
+
+    if to_format == "conll":
+        with smart_open(output_file, "w") as out_stream:
+            for s in sents:
+                for i, w in enumerate(s):
+                    # This only works because our only input formats are raw and tsv
+                    out_stream.write(f"{i}\t{w}\n")
+                out_stream.write("\n")
+    elif to_format == "horizontal":
+        with smart_open(output_file, "w") as out_stream:
+            for s in sents:
+                out_stream.write(" ".join(w for w in s))
+                out_stream.write("\n")
+    else:
+        raise ValueError(f"Unknown format {to_format}")
 
 
 if __name__ == "__main__":

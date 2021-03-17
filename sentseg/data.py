@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 
 from typing import (
@@ -6,7 +8,6 @@ from typing import (
     IO,
     Iterable,
     List,
-    NamedTuple,
     Sequence,
     Type,
     TypeVar,
@@ -18,7 +19,7 @@ import torch
 
 from torch.nn.utils.rnn import pad_sequence
 
-from sentseg import lexers, segmenter
+from sentseg import segmenter
 from sentseg.utils import smart_open
 
 
@@ -87,11 +88,6 @@ class SentDataset(torch.utils.data.Dataset):
         return cls(sents, **kwargs)
 
 
-class TaggedSeqBatch(NamedTuple):
-    seqs: lexers.BertLexerBatch
-    labels: torch.Tensor
-
-
 class SentLoader(torch.utils.data.DataLoader):
     # Labels that are -100 are ignored in torch crossentropy
     LABEL_PADDING: Final[int] = -100
@@ -102,11 +98,11 @@ class SentLoader(torch.utils.data.DataLoader):
             kwargs["collate_fn"] = self.collate
         super().__init__(dataset, *args, **kwargs)
 
-    def collate(self, batch: Sequence[segmenter.TaggedSeq]) -> TaggedSeqBatch:
+    def collate(self, batch: Sequence[segmenter.TaggedSeq]) -> segmenter.TaggedSeqBatch:
         seqs_batch = self.dataset.segmenter.lexer.make_batch([s.seq for s in batch])
         labels_batch = pad_sequence(
             [s.labels for s in batch],
             batch_first=True,
             padding_value=self.LABEL_PADDING,
         )
-        return TaggedSeqBatch(seqs_batch, labels_batch)
+        return segmenter.TaggedSeqBatch(seqs_batch, labels_batch)

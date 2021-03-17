@@ -1,8 +1,22 @@
-import pathlib
-from typing import Optional, Tuple, Type, TypeVar
+from __future__ import annotations
 
+import pathlib
+from typing import (
+    Generator,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+)
+
+from boltons import iterutils as itu
+from boltons.dictutils import OneToOne
 import fast_transformers.builders
 import fast_transformers.masking
+from loguru import logger
 import pydantic
 import pytorch_lightning as pl
 import pytorch_lightning.metrics as pl_metrics
@@ -13,11 +27,13 @@ import transformers
 
 from sentseg import lexers
 
+T = TypeVar("T")
+
 _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 
 
 class Segmenter(torch.nn.Module):
-    labels_lexicon = {"B": 0, "I": 1, "L": 2}
+    labels_lexicon = OneToOne({"B": 0, "I": 1, "L": 2})
 
     def __init__(self, lexer: lexers.BertLexer, depth: int = 1, n_heads: int = 1):
         super().__init__()
@@ -47,7 +63,62 @@ class Segmenter(torch.nn.Module):
         label_scores = self.output_layer(feats)
         return label_scores
 
-    def segment(self, )
+    def segment(
+        self,
+        words: Iterable[str],
+        block_size: int = 128,
+        batch_size: int = 1,
+        to_segment: Optional[Iterable[T]] = None,
+    ) -> Generator[List[T], None, None]:
+        if to_segment is None:
+            words = list(words)
+            to_segment = words
+        labels: List[str] = []
+        for batch in itu.chunked(itu.chunked(words, block_size), batch_size):
+
+            encoded_batch = self.lexer.make_batch(
+                [self.lexer.encode(block) for block in batch]
+            )
+            batch_out_scores = self(encoded_batch)
+            batch_labels_idx = batch_out_scores.argmax(dim=-1)
+            labels.extend(
+                self.labels_lexicon.inv[label]
+                for sent_labels in batch_labels_idx.tolist()
+                for label in sent_labels
+            )
+
+        current_sent: List[T] = []
+        for token, label in zip(to_segment, labels):
+            if label == "B":
+                if current_sent:
+                    logger.info(
+                        "Inconsistent predicted label: B in unfinished sentence"
+                    )
+                    yield current_sent
+                current_sent = [token]
+            elif label == "I":
+                if not current_sent:
+                    logger.info(
+                        "Inconsistent predicted labels: I before sentence beginning"
+                    )
+                current_sent.append(token)
+            elif label == "L":
+                if not current_sent:
+                    logger.info(
+                        "Inconsistent predicted labels: L before sentence beginning"
+                    )
+                current_sent.append(token)
+                yield current_sent
+                current_sent = []
+            else:
+                raise ValueError(
+                    f"Unknown label {label}, have you been messing with the vocabulary?"
+                )
+        if current_sent:
+            logger.info(
+                "Inconsistent predicted labels: unfinished sentence at document end"
+            )
+            yield current_sent
 
     def save(self, model_path: pathlib.Path, save_weights: bool = True):
         model_path.mkdir(exist_ok=True, parents=True)
@@ -96,6 +167,11 @@ class MaskedAccuracy(pl_metrics.Metric):
 
 class TaggedSeq(NamedTuple):
     seq: lexers.BertLexerSentence
+    labels: torch.Tensor
+
+
+class TaggedSeqBatch(NamedTuple):
+    seqs: lexers.BertLexerBatch
     labels: torch.Tensor
 
 
