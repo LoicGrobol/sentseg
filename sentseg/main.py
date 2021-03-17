@@ -349,7 +349,8 @@ def train(
             )
     if n_gpus:
         logger.info(f"Training the model on {n_gpus} GPUs")
-        additional_kwargs["precision"] = 16
+        logger.warning("Half precision disabled since fast-transformers doesn't support it.")
+        # additional_kwargs["precision"] = 16
     elif accelerator == "ddp_cpu":
         logger.info(
             f"Training the model on CPU in {additional_kwargs['num_processes']} processes"
