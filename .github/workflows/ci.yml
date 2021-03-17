@@ -20,7 +20,7 @@ jobs:
                   python-version: 3.9
             - name: Install dependencies
               run: |
-                  python -m pip install --upgrade pip wheel setuptools
+                  python -m pip install --upgrade pip
                   python -m pip install .
                   python -m pip install flake8
             - name: Lint with flake8
@@ -44,7 +44,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
             - name: Install dependencies
               run: |
-                  python -m pip install --upgrade pip wheel setuptools
+                  python -m pip install --upgrade pip
                   python -m pip install --upgrade tox tox-gh-actions
             - name: Test with tox
               run: |
@@ -63,7 +63,7 @@ jobs:
               with:
                   python-version: "3.9"
             - name: Install dependencies
-              run: python -m pip install --upgrade pip setuptools wheel build
+              run: python -m pip install --upgrade pip build
             - name: Build wheels
               run: python -m build --wheel
             - uses: actions/upload-artifact@v2
@@ -80,7 +80,7 @@ jobs:
               with:
                   python-version: "3.9"
             - name: Install dependencies
-              run: python -m pip install --upgrade pip setuptools wheel build
+              run: python -m pip install --upgrade pip build
             - name: Build wheels
               run: python -m build --sdist
             - uses: actions/upload-artifact@v2
