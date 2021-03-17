@@ -56,12 +56,12 @@ class SentDataset(torch.utils.data.Dataset):
         for s in self.sentences:
             self._flat_sents.extend(s)
             if len(s) == 1:
-                self._labels.append(self.segmenter["B"])
+                self._labels.append(self.segmenter.labels_lexicon["B"])
             self._labels.extend(
                 (
-                    self.segmenter["B"],
-                    *(self.segmenter["I"] for _ in s[1:-1]),
-                    self.segmenter["L"],
+                    self.segmenter.labels_lexicon["B"],
+                    *(self.segmenter.labels_lexicon["I"] for _ in s[1:-1]),
+                    self.segmenter.labels_lexicon["L"],
                 )
             )
 
