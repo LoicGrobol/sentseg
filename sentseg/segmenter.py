@@ -296,9 +296,10 @@ class SegmenterTrainModule(pl.LightningModule):
             weight_decay=decay_rate,
         )
 
-        # FIXME: this might result in `max_step==float("inf")`, which is currently not explicitely
-        # dealt with
         if self.trainer.max_steps is None:
+            # FIXME: this might result in `max_step==float("inf")`, which is currently not explicitely
+            # dealt with
+            # FIXME: this  assumes that the number of training batches is constant epoch-wise, which might not be true
             max_steps = self.trainer.max_epochs * self.trainer.num_training_batches
         else:
             max_steps = self.trainer.max_steps
