@@ -196,6 +196,11 @@ class Config(pydantic.BaseModel):
     help="Where to save the trained model, defaults to the current dir",
 )
 @click.option(
+    "--pre-encode",
+    is_flag=True,
+    help="Pre-encode the datasets (faster but more demanding in RAM)",
+)
+@click.option(
     "--save-period",
     type=int,
     help="The number of epoch between intermediate model saving, defaults to not saving intermediate models.",
@@ -218,6 +223,7 @@ def train(
     n_nodes: int,
     n_workers: int,
     out_dir: pathlib.Path,
+    pre_encode: bool,
     profile: bool,
     save_period: int,
     sharded_ddp: bool,
@@ -252,9 +258,13 @@ def train(
 
     logger.info(f"Loading train dataset from {trainset_path}")
     train_set = data.SentDataset.from_conllu(trainset_path, segmenter=model)
+    if pre_encode:
+        train_set.encode()
     dev_set: Optional[data.TextDataset]
     if devset_path is not None:
         dev_set = data.SentDataset.from_conllu(devset_path, segmenter=model)
+        if pre_encode:
+            dev_set.encode()
     else:
         dev_set = None
 

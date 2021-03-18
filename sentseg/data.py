@@ -8,6 +8,7 @@ from typing import (
     IO,
     Iterable,
     List,
+    Optional,
     Sequence,
     Type,
     TypeVar,
@@ -64,11 +65,18 @@ class SentDataset(torch.utils.data.Dataset):
                     self.segmenter.labels_lexicon["L"],
                 )
             )
+        
+        self._pre_encoded: Optional[List[segmod.TaggedSeq]] = None
+
+    def encode(self):
+        self._pre_encoded = list(self)
 
     def __len__(self):
         return (len(self._labels) - self.block_size) // self.offset
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> segmod.TaggedSeq:
+        if self._pre_encoded is not None:
+            return self._pre_encoded[index]
         seq = self._flat_sents[
             index * self.offset : index * self.offset + self.block_size
         ]
