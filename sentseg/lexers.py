@@ -43,7 +43,7 @@ class BertLexerBatch(NamedTuple):
     ) -> _T_BertLexerBatch:
         return type(self)(
             bert_encoding=self.bert_encoding.to(device=device),
-            sent_lengths=self.sent_lengths,
+            sent_lengths=self.sent_lengths.to(device=device),
             subword_alignments=self.subword_alignments,
             word_indices=self.word_indices.to(device=device),
         )
