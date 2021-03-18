@@ -295,13 +295,22 @@ class SegmenterTrainModule(pl.LightningModule):
             eps=self.config.epsilon,
             weight_decay=decay_rate,
         )
+
+        # FIXME: this might result in `max_step==float("inf")`, which is currently not explicitely
+        # dealt with
+        if self.trainer.max_steps is None:
+            max_steps = self.trainer.max_epochs * self.trainer.num_training_batches
+        else:
+            max_steps = self.trainer.max_steps
+
         if isinstance(self.config.warmup_steps, float):
-            warmup_steps = math.floor(self.config.warmup_steps * self.trainer.max_steps)
+            warmup_steps = math.floor(self.config.warmup_steps * max_steps)
         else:
             warmup_steps = self.config.warmup_steps
+
         if self.config.lr_decay_steps:
             if self.config.lr_decay_steps == -1:
-                num_training_steps = self.trainer.max_steps
+                num_training_steps = max_steps
             else:
                 num_training_steps = self.config.lr_decay_steps
 
