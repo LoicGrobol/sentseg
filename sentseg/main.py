@@ -262,7 +262,9 @@ def train(
         train_set.encode()
     dev_set: Optional[data.TextDataset]
     if devset_path is not None:
-        dev_set = data.SentDataset.from_conllu(devset_path, segmenter=model)
+        dev_set = data.SentDataset.from_conllu(
+            devset_path, segmenter=model, offset=128, block_size=128
+        )
         if pre_encode:
             dev_set.encode()
     else:
@@ -449,6 +451,7 @@ def segment(
     else:
         input_file = input_path
     model = segmenter.Segmenter.load(model_path)
+    model.eval()
     if from_format == "tokenized":
         with smart_open(input_file) as in_stream:
             words = in_stream.read().split()

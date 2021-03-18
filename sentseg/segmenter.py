@@ -37,10 +37,11 @@ _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 class Segmenter(torch.nn.Module):
     labels_lexicon = OneToOne({"B": 0, "I": 1, "L": 2})
 
-    def __init__(self, lexer: lexers.BertLexer, depth: int = 1, n_heads: int = 1):
+    def __init__(self, lexer: lexers.BertLexer, depth: int = 1, n_heads: int = 1, dropout: float = 0.1):
         super().__init__()
         self.lexer = lexer
         self.depth = depth
+        self.dropout = torch.nn.Dropout(dropout)
         self.n_heads = n_heads
         self.transformer = (
             fast_transformers.builders.TransformerEncoderBuilder.from_kwargs(
@@ -62,6 +63,7 @@ class Segmenter(torch.nn.Module):
             encoded_inpt,
             length_mask=fast_transformers.masking.LengthMask(inpt.sent_lengths),
         )
+        feats = self.dropout(feats)
         label_scores = self.output_layer(feats)
         return label_scores
 
@@ -81,8 +83,9 @@ class Segmenter(torch.nn.Module):
             encoded_batch = self.lexer.make_batch(
                 [self.lexer.encode(block) for block in batch]
             )
-            batch_out_scores = self(encoded_batch)
-            batch_labels_idx = batch_out_scores.argmax(dim=-1)
+            with torch.no_grad:
+                batch_out_scores = self(encoded_batch)
+                batch_labels_idx = batch_out_scores.argmax(dim=-1)
             labels.extend(
                 self.labels_lexicon.inv[label]
                 for sent_labels in batch_labels_idx.tolist()
@@ -114,7 +117,7 @@ class Segmenter(torch.nn.Module):
                 current_sent = []
             else:
                 raise ValueError(
-                    f"Unknown label {label}, have you been messing with the vocabulary?"
+                    f"Unknown label {label!r}, have you been messing with the vocabulary?"
                 )
         if current_sent:
             logger.info(
@@ -128,6 +131,7 @@ class Segmenter(torch.nn.Module):
             toml.dump(
                 {
                     "depth": self.depth,
+                    "dropout": self.dropout.p,
                     "n_heads": self.n_heads,
                 },
                 out_stream,
@@ -187,6 +191,7 @@ class SegmenterTrainHparams(pydantic.BaseModel):
     weight_decay: Optional[float] = None
 
 
+# TODO: also train on a MLM objective
 class SegmenterTrainModule(pl.LightningModule):
     def __init__(
         self,
@@ -233,6 +238,7 @@ class SegmenterTrainModule(pl.LightningModule):
         )
         return loss
 
+    # TODO: add mean token overlap ratio as a validation metric
     def validation_step(self, batch: TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
         inpt, labels = batch
 
