@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import shutil
 import sys
 import warnings
 
@@ -223,12 +224,14 @@ def train(
     trainset_path: pathlib.Path,
     verbose: bool,
 ):
+    out_dir.mkdir(exist_ok=True, parents=True)
     if (slurm_procid := os.environ.get("SLURM_PROCID")) is not None:
         log_file = out_dir / "logs" / f"train{slurm_procid}.log"
     else:
         log_file = out_dir / "train.log"
     setup_logging(verbose, log_file)
     logger.debug(f"Current environment: {os.environ}")
+    rank_zero_only(shutil.copy)(str(config_path), out_dir / "config.toml")
     with open(config_path) as in_stream:
         config = Config.parse_obj(toml.load(in_stream))
 
