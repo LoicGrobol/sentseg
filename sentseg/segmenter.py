@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import pathlib
 from typing import (
     Generator,
@@ -10,6 +11,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    Union,
 )
 
 from boltons import iterutils as itu
@@ -181,7 +183,7 @@ class SegmenterTrainHparams(pydantic.BaseModel):
     epsilon: float = 1e-8
     learning_rate: float = 1e-4
     lr_decay_steps: Optional[int] = None
-    warmup_steps: int = 0
+    warmup_steps: Union[float, int] = 0
     weight_decay: Optional[float] = None
 
 
@@ -293,6 +295,10 @@ class SegmenterTrainModule(pl.LightningModule):
             eps=self.config.epsilon,
             weight_decay=decay_rate,
         )
+        if isinstance(self.config.warmup_steps, float):
+            warmup_steps = math.floor(self.config.warmup_steps * self.trainer.max_steps)
+        else:
+            warmup_steps = self.config.warmup_steps
         if self.config.lr_decay_steps:
             if self.config.lr_decay_steps == -1:
                 num_training_steps = self.trainer.max_steps
@@ -301,14 +307,14 @@ class SegmenterTrainModule(pl.LightningModule):
 
             schedule = transformers.get_linear_schedule_with_warmup(
                 optimizer,
-                num_warmup_steps=self.config.warmup_steps,
+                num_warmup_steps=warmup_steps,
                 num_training_steps=num_training_steps,
             )
             schedulers = [{"scheduler": schedule, "interval": "step"}]
         elif self.config.warmup_steps > 0:
             schedule = transformers.get_constant_schedule_with_warmup(
                 optimizer,
-                num_warmup_steps=self.config.warmup_steps,
+                num_warmup_steps=warmup_steps,
             )
             schedulers = [{"scheduler": schedule, "interval": "step"}]
         else:
