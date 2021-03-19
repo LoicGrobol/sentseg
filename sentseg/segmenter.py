@@ -37,7 +37,13 @@ _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 class Segmenter(torch.nn.Module):
     labels_lexicon = OneToOne({"B": 0, "I": 1, "L": 2})
 
-    def __init__(self, lexer: lexers.BertLexer, depth: int = 1, n_heads: int = 1, dropout: float = 0.1):
+    def __init__(
+        self,
+        lexer: lexers.BertLexer,
+        depth: int = 1,
+        n_heads: int = 1,
+        dropout: float = 0.1,
+    ):
         super().__init__()
         self.lexer = lexer
         self.depth = depth
@@ -72,8 +78,11 @@ class Segmenter(torch.nn.Module):
         words: Iterable[str],
         block_size: int = 128,
         batch_size: int = 1,
+        diagnostic: bool = False,
         to_segment: Optional[Iterable[T]] = None,
-    ) -> Generator[List[T], None, None]:
+    ) -> Union[
+        Generator[List[T], None, None], Generator[List[Tuple[T, str]], None, None]
+    ]:
         if to_segment is None:
             words = list(words)
             to_segment = words
@@ -91,6 +100,9 @@ class Segmenter(torch.nn.Module):
                 for sent_labels in batch_labels_idx.tolist()
                 for label in sent_labels
             )
+
+        if diagnostic:
+            to_segment = zip(to_segment, labels)
 
         current_sent: List[T] = []
         for token, label in zip(to_segment, labels):

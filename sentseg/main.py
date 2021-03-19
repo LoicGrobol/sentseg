@@ -423,6 +423,11 @@ def save_model(
     default="-",
 )
 @click.option(
+    "--diagnostic",
+    is_flag=True,
+    help="Add labels to the output.",
+)
+@click.option(
     "--from",
     "from_format",
     help="Format of the input file",
@@ -439,6 +444,7 @@ def save_model(
     show_default=True,
 )
 def segment(
+    diagnostic: bool,
     from_format: Literal["tokenized", "tsv"],
     input_path: str,
     model_path: pathlib.Path,
@@ -465,7 +471,7 @@ def segment(
                 lines = None
     else:
         raise ValueError(f"Unknown format {from_format}")
-    sents = model.segment(words, to_segment=lines)
+    sents = model.segment(words, diagnostic=diagnostic, to_segment=lines)
 
     output_file: Union[pathlib.Path, TextIO]
     if output_path == "-":
