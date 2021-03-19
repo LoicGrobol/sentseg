@@ -445,11 +445,11 @@ def segment(
     output_path: str,
     to_format: Literal["conll", "horizontal"],
 ):
-    input_file: Union[str, TextIO]
+    input_file: Union[pathlib.Path, TextIO]
     if input_path == "-":
         input_file = sys.stdin
     else:
-        input_file = input_path
+        input_file = pathlib.Path(input_path)
     model = segmenter.Segmenter.load(model_path)
     model.eval()
     if from_format == "tokenized":
@@ -467,11 +467,12 @@ def segment(
         raise ValueError(f"Unknown format {from_format}")
     sents = model.segment(words, to_segment=lines)
 
-    output_file: Union[str, TextIO]
+    output_file: Union[pathlib.Path, TextIO]
     if output_path == "-":
         output_file = sys.stdout
     else:
-        output_file = output_path
+        output_file = pathlib.Path(output_path)
+        output_file.parent.mkdir(exist_ok=True, parents=True)
 
     if to_format == "conll":
         with smart_open(output_file, "w") as out_stream:
