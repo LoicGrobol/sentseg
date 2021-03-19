@@ -16,7 +16,8 @@ from typing import (
 
 from boltons import iterutils as itu
 from boltons.dictutils import OneToOne
-import fast_transformers.builders
+import fast_transformers.transformers
+import fast_transformers.attention
 import fast_transformers.masking
 from loguru import logger
 import pydantic
@@ -49,23 +50,26 @@ class Segmenter(torch.nn.Module):
         self.depth = depth
         self.dropout = torch.nn.Dropout(dropout)
         self.n_heads = n_heads
-        self.transformer = (
-            fast_transformers.builders.TransformerEncoderBuilder.from_kwargs(
-                n_layers=self.depth,
-                n_heads=self.n_heads,
-                query_dimensions=self.lexer.out_dim,
-                value_dimensions=self.lexer.out_dim,
-                feed_forward_dimensions=4 * self.lexer.out_dim,
-                attention_type="full",
-                activation="gelu",
-                dropout=dropout,
-            ).get()
+        self.transformer = fast_transformers.transformers.TransformerEncoder(
+            [
+                fast_transformers.transformers.TransformerEncoderLayer(
+                    fast_transformers.attention.AttentionLayer(
+                        fast_transformers.attention.FullAttention(),
+                        self.lexer.out_dim,
+                        self.n_heads,
+                    ),
+                    self.lexer.out_dim,
+                    self.n_heads,
+                    activation="gelu",
+                )
+                for _ in range(self.depth)
+            ],
+            norm_layer=torch.nn.LayerNorm(self.lexer.out_dim),
         )
         self.output_layer = torch.nn.Linear(self.lexer.out_dim, 3)
 
     def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:
         encoded_inpt = self.lexer(inpt)
-        # Pytorch transformers use seq×batch×feats dimensions, I don't understand why
         feats = self.transformer(
             encoded_inpt,
             length_mask=fast_transformers.masking.LengthMask(inpt.sent_lengths),

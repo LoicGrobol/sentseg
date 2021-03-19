@@ -2,7 +2,7 @@
 
     [segmenter.model]
     depth = 2
-    n_heads = 1
+    n_heads = 2
 
     [segmenter.lexer]
     transformer_model = "distilbert-base-multilingual-cased"
