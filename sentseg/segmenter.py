@@ -24,6 +24,7 @@ import pydantic
 import pytorch_lightning as pl
 import pytorch_lightning.metrics as pl_metrics
 import toml
+import tqdm
 import torch
 import torch.nn
 import transformers
@@ -94,7 +95,12 @@ class Segmenter(torch.nn.Module):
             words = list(words)
             to_segment = words
         labels: List[str] = []
-        for batch in itu.chunked(itu.chunked(words, block_size), batch_size):
+        for batch in itu.chunked_iter(
+            itu.chunked_iter(
+                tqdm.tqdm(words, desc="Tagging", unit="words", leave=False), block_size
+            ),
+            batch_size,
+        ):
 
             encoded_batch = self.lexer.make_batch(
                 [self.lexer.encode(block) for block in batch]
@@ -112,7 +118,9 @@ class Segmenter(torch.nn.Module):
             to_segment = zip(to_segment, labels)
 
         current_sent: List[T] = []
-        for token, label in zip(to_segment, labels):
+        for token, label in zip(
+            to_segment, tqdm.tqdm(labels, desc="Segmenting", unit="words", leave=False)
+        ):
             if label == "B":
                 if current_sent:
                     logger.info(
@@ -218,7 +226,7 @@ class SegmenterTrainHparams(pydantic.BaseModel):
     weight_decay: Optional[float] = None
 
 
-# TODO: also train on a MLM objective
+# TODO: also train on a MLM objective?
 class SegmenterTrainModule(pl.LightningModule):
     def __init__(
         self,
@@ -241,7 +249,7 @@ class SegmenterTrainModule(pl.LightningModule):
     def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:  # type: ignore[override]
         return self.model(inpt)
 
-    def training_step(self, batch: TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
+    def training_step(self, batch: TaggedSeqBatch, batch_idx: int) -> torch.Tensor:  # type: ignore[override]
         inpt, labels = batch
 
         outputs = self(inpt)
@@ -265,8 +273,8 @@ class SegmenterTrainModule(pl.LightningModule):
         )
         return loss
 
-    # TODO: add mean token overlap ratio as a validation metric
-    def validation_step(self, batch: TaggedSeqBatch, batch_idx: int):  # type: ignore[override]
+    # TODO: add mean token overlap ratio as a validation metric. use scipy linear sum assignment
+    def validation_step(self, batch: TaggedSeqBatch, batch_idx: int) -> torch.Tensor:  # type: ignore[override]
         inpt, labels = batch
 
         outputs = self(inpt)

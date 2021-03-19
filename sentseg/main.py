@@ -267,13 +267,16 @@ def train(
     train_set = data.SentDataset.from_conllu(
         trainset_path, segmenter=model, offset=offset
     )
+    logger.info(f"Loaded {len(train_set)} samples")
     if pre_encode:
         train_set.encode()
     dev_set: Optional[data.SentDataset]
     if devset_path is not None:
+        logger.info(f"Loading dev dataset from {trainset_path}")
         dev_set = data.SentDataset.from_conllu(
             devset_path, segmenter=model, offset=128, block_size=128
         )
+        logger.info(f"Loaded {len(dev_set)} samples")
         if pre_encode:
             dev_set.encode()
     else:

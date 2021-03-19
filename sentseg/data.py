@@ -38,7 +38,7 @@ def vocab_from_conllu(filename: Union[str, pathlib.Path, IO[str]]) -> Dict[str, 
 _T_SENTDATASET = TypeVar("_T_SENTDATASET", bound="SentDataset")
 
 
-class SentDataset(torch.utils.data.Dataset):
+class SentDataset(torch.utils.data.Dataset[segmod.TaggedSeq]):
     def __init__(
         self,
         sentences: Iterable[Sequence[str]],
@@ -73,7 +73,7 @@ class SentDataset(torch.utils.data.Dataset):
         self._pre_encoded = list(self)
 
     def __len__(self):
-        return (len(self._labels) - self.block_size) // self.offset
+        return 1 + (len(self._labels) - self.block_size) // self.offset
 
     def __getitem__(self, index: int) -> segmod.TaggedSeq:
         if self._pre_encoded is not None:
@@ -97,7 +97,7 @@ class SentDataset(torch.utils.data.Dataset):
         return cls(sents, **kwargs)
 
 
-class SentLoader(torch.utils.data.DataLoader):
+class SentLoader(torch.utils.data.DataLoader[segmod.TaggedSeqBatch]):
     # Labels that are -100 are ignored in torch crossentropy
     LABEL_PADDING: Final[int] = -100
 
