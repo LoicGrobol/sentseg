@@ -36,7 +36,7 @@ _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 
 
 class Segmenter(torch.nn.Module):
-    labels_lexicon = OneToOne({"B": 0, "I": 1, "L": 2})
+    labels_lexicon = OneToOne({"B": 0, "I": 1, "L": 2, "U": 3})
 
     def __init__(
         self,
@@ -66,7 +66,9 @@ class Segmenter(torch.nn.Module):
             ],
             norm_layer=torch.nn.LayerNorm(self.lexer.out_dim),
         )
-        self.output_layer = torch.nn.Linear(self.lexer.out_dim, 3)
+        self.output_layer = torch.nn.Linear(
+            self.lexer.out_dim, len(self.labels_lexicon)
+        )
 
     def forward(self, inpt: lexers.BertLexerBatch) -> torch.Tensor:
         encoded_inpt = self.lexer(inpt)
@@ -131,6 +133,14 @@ class Segmenter(torch.nn.Module):
                     )
                 current_sent.append(token)
                 yield current_sent
+                current_sent = []
+            elif label == "U":
+                if current_sent:
+                    logger.info(
+                        "Inconsistent predicted label: U in unfinished sentence"
+                    )
+                    yield current_sent
+                yield [token]
                 current_sent = []
             else:
                 raise ValueError(

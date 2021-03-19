@@ -57,14 +57,15 @@ class SentDataset(torch.utils.data.Dataset):
         for s in self.sentences:
             self._flat_sents.extend(s)
             if len(s) == 1:
-                self._labels.append(self.segmenter.labels_lexicon["B"])
-            self._labels.extend(
-                (
-                    self.segmenter.labels_lexicon["B"],
-                    *(self.segmenter.labels_lexicon["I"] for _ in s[1:-1]),
-                    self.segmenter.labels_lexicon["L"],
+                self._labels.append(self.segmenter.labels_lexicon["U"])
+            else:
+                self._labels.extend(
+                    (
+                        self.segmenter.labels_lexicon["B"],
+                        *(self.segmenter.labels_lexicon["I"] for _ in s[1:-1]),
+                        self.segmenter.labels_lexicon["L"],
+                    )
                 )
-            )
 
         self._pre_encoded: Optional[List[segmod.TaggedSeq]] = None
 
