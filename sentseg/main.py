@@ -190,6 +190,12 @@ class Config(pydantic.BaseModel):
     show_default=True,
 )
 @click.option(
+    "--offset",
+    type=int,
+    help="The number of offset words between sequences",
+    default=1,
+)
+@click.option(
     "--out-dir",
     default=".",
     type=click_pathlib.Path(resolve_path=True, file_okay=False),
@@ -222,6 +228,7 @@ def train(
     n_gpus: int,
     n_nodes: int,
     n_workers: int,
+    offset: int,
     out_dir: pathlib.Path,
     pre_encode: bool,
     profile: bool,
@@ -257,7 +264,9 @@ def train(
     model = segmenter.Segmenter(lexer, **config.segmenter["model"])
 
     logger.info(f"Loading train dataset from {trainset_path}")
-    train_set = data.SentDataset.from_conllu(trainset_path, segmenter=model)
+    train_set = data.SentDataset.from_conllu(
+        trainset_path, segmenter=model, offset=offset
+    )
     if pre_encode:
         train_set.encode()
     dev_set: Optional[data.SentDataset]
