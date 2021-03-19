@@ -58,6 +58,7 @@ class Segmenter(torch.nn.Module):
                 feed_forward_dimensions=4 * self.lexer.out_dim,
                 attention_type="full",
                 activation="gelu",
+                dropout=dropout,
             ).get()
         )
         self.output_layer = torch.nn.Linear(self.lexer.out_dim, 3)
