@@ -260,7 +260,7 @@ def train(
     train_set = data.SentDataset.from_conllu(trainset_path, segmenter=model)
     if pre_encode:
         train_set.encode()
-    dev_set: Optional[data.TextDataset]
+    dev_set: Optional[data.SentDataset]
     if devset_path is not None:
         dev_set = data.SentDataset.from_conllu(
             devset_path, segmenter=model, offset=128, block_size=128
@@ -308,7 +308,7 @@ def train(
         train_set, batch_size=loader_batch_size, num_workers=n_workers, shuffle=True
     )
 
-    val_loaders: Optional[List[data.TextLoader]]
+    val_loaders: Optional[List[data.SentLoader]]
     if dev_set is not None:
         val_loaders = [
             data.SentLoader(

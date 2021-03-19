@@ -65,7 +65,7 @@ class SentDataset(torch.utils.data.Dataset):
                     self.segmenter.labels_lexicon["L"],
                 )
             )
-        
+
         self._pre_encoded: Optional[List[segmod.TaggedSeq]] = None
 
     def encode(self):

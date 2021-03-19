@@ -83,7 +83,7 @@ class Segmenter(torch.nn.Module):
             encoded_batch = self.lexer.make_batch(
                 [self.lexer.encode(block) for block in batch]
             )
-            with torch.no_grad:
+            with torch.no_grad():
                 batch_out_scores = self(encoded_batch)
                 batch_labels_idx = batch_out_scores.argmax(dim=-1)
             labels.extend(
