@@ -495,7 +495,7 @@ def segment(
     if to_format == "conll":
         with smart_open(output_file, "w") as out_stream:
             for s in sents:
-                for i, w in enumerate(s):
+                for i, w in enumerate(s, start=1):
                     # This only works because our only input formats are tokenized and tsv
                     out_stream.write(f"{i}\t{w}\n")
                 out_stream.write("\n")
