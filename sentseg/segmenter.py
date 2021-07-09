@@ -3,15 +3,16 @@ from __future__ import annotations
 import math
 import pathlib
 from typing import (
-    Generator,
     Iterable,
     List,
+    Literal,
     NamedTuple,
     Optional,
     Tuple,
     Type,
     TypeVar,
     Union,
+    overload,
 )
 
 from boltons import iterutils as itu
@@ -81,19 +82,68 @@ class Segmenter(torch.nn.Module):
         label_scores = self.output_layer(feats)
         return label_scores
 
+    @overload
     def segment(
         self,
         words: Iterable[str],
-        block_size: int = 128,
-        batch_size: int = 1,
-        diagnostic: bool = False,
-        to_segment: Optional[Iterable[T]] = None,
+        block_size: int,
+        batch_size: int,
+        diagnostic: Literal[False],
+        to_segment: Iterable[T],
+    ) -> Iterable[List[T]]:
+        pass
+
+    @overload
+    def segment(
+        self,
+        words: Iterable[str],
+        block_size: int,
+        batch_size: int,
+        diagnostic: Literal[True],
+        to_segment: Iterable[T],
+    ) -> Iterable[List[Tuple[T, str]]]:
+        pass
+
+    @overload
+    def segment(
+        self,
+        words: Iterable[str],
+        block_size: int,
+        batch_size: int,
+        diagnostic: Literal[False],
+        to_segment: None,
+    ) -> Iterable[List[str]]:
+        pass
+
+    @overload
+    def segment(
+        self,
+        words: Iterable[str],
+        block_size: int,
+        batch_size: int,
+        diagnostic: Literal[True],
+        to_segment: None,
+    ) -> Iterable[List[Tuple[str, str]]]:
+        pass
+
+    def segment(
+        self,
+        words: Iterable[str],
+        block_size: int,
+        batch_size: int,
+        diagnostic: bool,
+        to_segment: Optional[Iterable[T]],
     ) -> Union[
-        Generator[List[T], None, None], Generator[List[Tuple[T, str]], None, None]
+        Iterable[List[T]],
+        Iterable[List[Tuple[T, str]]],
+        Iterable[List[str]],
+        Iterable[List[Tuple[str, str]]],
     ]:
+        device = next(self.parameters()).device
         if to_segment is None:
             words = list(words)
             to_segment = words
+
         labels: List[str] = []
         for batch in itu.chunked_iter(
             itu.chunked_iter(
@@ -105,6 +155,7 @@ class Segmenter(torch.nn.Module):
             encoded_batch = self.lexer.make_batch(
                 [self.lexer.encode(block) for block in batch]
             )
+            encoded_batch = encoded_batch.to(device)
             with torch.no_grad():
                 batch_out_scores = self(encoded_batch)
                 batch_labels_idx = batch_out_scores.argmax(dim=-1)

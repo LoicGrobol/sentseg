@@ -440,6 +440,12 @@ def save_model(
     help="Add labels to the output.",
 )
 @click.option(
+    "--device",
+    default="cpu",
+    help="The pytorch device to use",
+    show_default=True,
+)
+@click.option(
     "--from",
     "from_format",
     help="Format of the input file",
@@ -456,6 +462,7 @@ def save_model(
     show_default=True,
 )
 def segment(
+    device: str,
     diagnostic: bool,
     from_format: Literal["tokenized", "tsv"],
     input_path: str,
@@ -469,7 +476,9 @@ def segment(
     else:
         input_file = pathlib.Path(input_path)
     model = segmenter.Segmenter.load(model_path)
+    model.to(device)
     model.eval()
+    words: List[str]
     if from_format == "tokenized":
         with smart_open(input_file) as in_stream:
             words = in_stream.read().split()

@@ -244,7 +244,9 @@ class BertLexer(torch.nn.Module):
         bert_encoding = self.bert_tokenizer.pad(bert_batch, return_tensors="pt")
         return BertLexerBatch(
             bert_encoding=bert_encoding,
-            sent_lengths=torch.tensor([s.word_indices.shape[0] for s in batch], dtype=torch.long),
+            sent_lengths=torch.tensor(
+                [s.word_indices.shape[0] for s in batch], dtype=torch.long
+            ),
             subword_alignments=alignments,
             word_indices=pad_sequence(
                 words_batch, batch_first=True, padding_value=self.embedding.padding_idx
@@ -308,7 +310,9 @@ class BertLexer(torch.nn.Module):
             json.dump(self.vocab, out_stream)
         muppet_path = model_path / "muppet"
         self.bert.config.save_pretrained(str(muppet_path))
-        self.bert_tokenizer.save_pretrained(str(muppet_path))
+        self.bert_tokenizer.save_pretrained(
+            str(muppet_path), legacy_format=not bert_tokenizer.is_fast
+        )
         if save_weights:
             torch.save(self.state_dict(), model_path / "weights.pt")
 
