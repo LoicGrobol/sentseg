@@ -129,10 +129,10 @@ class Segmenter(torch.nn.Module):
     def segment(
         self,
         words: Iterable[str],
-        block_size: int,
-        batch_size: int,
-        diagnostic: bool,
-        to_segment: Optional[Iterable[T]],
+        block_size: int = 128,
+        batch_size: int = 1,
+        diagnostic: bool = False,
+        to_segment: Optional[Iterable[T]] = None,
     ) -> Union[
         Iterable[List[T]],
         Iterable[List[Tuple[T, str]]],
