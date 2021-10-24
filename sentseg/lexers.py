@@ -254,11 +254,6 @@ class BertLexer(torch.nn.Module):
         )
 
     def encode(self, tokens_sequence: Sequence[str]) -> BertLexerSentence:
-        """
-        This maps word tokens to integer indexes.
-        Args:
-           tok_sequence: a sequence of strings
-        """
         word_idxes = torch.tensor(
             [self.vocab.get(token, self.unk_word_idx) for token in tokens_sequence],
             dtype=torch.long,

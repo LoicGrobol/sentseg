@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import pathlib
 from typing import (
+    Final,
     Iterable,
     List,
     Literal,
@@ -23,7 +24,7 @@ import fast_transformers.masking
 from loguru import logger
 import pydantic
 import pytorch_lightning as pl
-import pytorch_lightning.metrics as pl_metrics
+import torchmetrics as pl_metrics
 import toml
 import tqdm
 import torch
@@ -38,7 +39,7 @@ _T_Segmenter = TypeVar("_T_Segmenter", bound="Segmenter")
 
 
 class Segmenter(torch.nn.Module):
-    labels_lexicon = OneToOne({"B": 0, "I": 1, "L": 2, "U": 3})
+    labels_lexicon: Final[OneToOne] = OneToOne({"B": 0, "I": 1, "L": 2, "U": 3})
 
     def __init__(
         self,
